@@ -1,23 +1,42 @@
 const Visit = require("../models/Visit");
 const { Parser } = require("json2csv");
+const Session = require("../models/Session");
 
 exports.statsSummary = async (req, res) => {
   try {
-    // Total visits (all records)
+    // Basic stats
     const totalHits = await Visit.countDocuments();
+    const uniqueIPs = await Visit.distinct("ip");
+    const uniqueVisitors = uniqueIPs.length;
 
-    // Unique visitors (by IP or sessionId)
-    const uniqueVisitors = await Visit.distinct("ip"); // Use 'sessionId' if you're tracking that
-    const uniqueCount = uniqueVisitors.length;
+    // Fetch all sessions
+    const sessions = await Session.find();
 
-    // TODO: Optional Features
-    const averageSessionDuration = "N/A"; // Only if you implement sessions
-    const bounceRate = "N/A"; // Only if you track page depth per session
+    // 🟢 Bounce Rate: % of sessions with only 1 page visited
+    const bounced = sessions.filter((s) => s.pagesVisited === 1).length;
+    const totalSessions = sessions.length;
+    const bounceRate =
+      totalSessions === 0
+        ? "N/A"
+        : ((bounced / totalSessions) * 100).toFixed(2) + "%";
 
+    // 🕓 Avg. Session Duration
+    const sessionDurations = sessions.map((s) => {
+      const duration = new Date(s.endTime) - new Date(s.startTime);
+      return duration > 0 ? duration : 0;
+    });
+
+    const totalDuration = sessionDurations.reduce((acc, ms) => acc + ms, 0);
+    const avgSessionDuration =
+      totalSessions === 0
+        ? "N/A"
+        : formatDuration(totalDuration / totalSessions);
+
+    // Return final stats
     res.status(200).json({
       totalHits,
-      uniqueVisitors: uniqueCount,
-      averageSessionDuration,
+      uniqueVisitors,
+      averageSessionDuration: avgSessionDuration,
       bounceRate,
     });
   } catch (error) {
@@ -25,6 +44,17 @@ exports.statsSummary = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch summary" });
   }
 };
+
+// Helper: Convert milliseconds to readable format
+function formatDuration(ms) {
+  const seconds = Math.floor((ms / 1000) % 60);
+  const minutes = Math.floor((ms / 1000 / 60) % 60);
+  const hours = Math.floor(ms / 1000 / 60 / 60);
+
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
 
 exports.getPages = async (req, res) => {
   try {

@@ -7,6 +7,7 @@ const trackRoutes = require("./routes/trackRoutes");
 const statesRoutes = require("./routes/statsRoutes");
 
 const app = express();
+app.set("trust proxy", 1); // Trust first proxy for rate limiting
 
 app.use(express.json());
 app.use(cors());
