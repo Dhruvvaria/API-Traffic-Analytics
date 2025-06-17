@@ -1,7 +1,7 @@
 const Visit = require("../models/Visit");
 const { Parser } = require("json2csv");
 
-exports.statsSummery = async (req, res) => {
+exports.statsSummary = async (req, res) => {
   try {
     // Total visits (all records)
     const totalHits = await Visit.countDocuments();
